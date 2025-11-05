@@ -1,3 +1,5 @@
 # Alle .mov-Dateien ignorieren
 *.mov
 *.MOV
+venv/
+*.mp4

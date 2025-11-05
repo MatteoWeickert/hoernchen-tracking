@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Video öffnen
-source = cv2.VideoCapture('C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\Squirrels_new_cups1.mov')
+source = cv2.VideoCapture('C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\squirrel_vid1_cutted.mp4')
 if not source.isOpened():
     raise ValueError("Error: Could not open video.")
 
