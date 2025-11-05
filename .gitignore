@@ -3,3 +3,4 @@
 *.MOV
 venv/
 *.mp4
+*.pt
