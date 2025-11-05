@@ -1,0 +1,3 @@
+# Alle .mov-Dateien ignorieren
+*.mov
+*.MOV
