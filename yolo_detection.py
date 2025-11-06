@@ -13,6 +13,16 @@ if not cap.isOpened():
     print("Fehler: Video konnte nicht geöffnet werden.")
     exit()
 
+# Speichere Werte für die Videoeigenschaften
+frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = int(cap.get(cv2.CAP_PROP_FPS))
+
+# VideoWriter zum Speichern des Ausgabevideos
+output_path = 'output_squirrel_detection.mp4'
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+
 # 3. Verarbeite das Video Frame für Frame
 while cap.isOpened():
     ret, frame = cap.read()
@@ -26,6 +36,8 @@ while cap.isOpened():
     # results enthält alle erkannten Objekte
     annotated_frame = results[0].plot()
 
+    out.write(annotated_frame)
+
     # Zeige den bearbeiteten Frame an
     cv2.imshow("YOLOv8n Squirrel Detection", annotated_frame)
 
@@ -34,5 +46,7 @@ while cap.isOpened():
         break
 
 # Aufräumen
+print(f"Video erfolgreich gespeichert unter: {output_path}")
 cap.release()
+out.release()
 cv2.destroyAllWindows()

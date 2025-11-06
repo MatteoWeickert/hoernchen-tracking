@@ -9,7 +9,7 @@ cap = cv2.VideoCapture(video_path)
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)) # elliptischer Kernel der Größe 7x7
 
 # Hintergrundsubstratkionsmodell initialisieren - Funktion createBackgroundSubstractorMOG2()
-fgbg = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=200, detectShadows=True) # Mixture of Gaussians (MOG): Das Modell basiert auf einer Mischung von Gauss-Verteilungen (Normalverteilungen), die auf jeden Pixel des Bildes angewendet werden. Es berücksichtigt mehrere Farben und Helligkeitswerte, um Hintergrund und Vordergrund zu modellieren. Es ist adaptiv und lernt den Hintergrund kontinuierlich. Wennn sich etwas plötzlich bewegt, dann wird es als Vordergrund erkannt.
+fgbg = cv2.createBackgroundSubtractorKNN(history=500, detectShadows=True) # Mixture of Gaussians (MOG): Das Modell basiert auf einer Mischung von Gauss-Verteilungen (Normalverteilungen), die auf jeden Pixel des Bildes angewendet werden. Es berücksichtigt mehrere Farben und Helligkeitswerte, um Hintergrund und Vordergrund zu modellieren. Es ist adaptiv und lernt den Hintergrund kontinuierlich. Wennn sich etwas plötzlich bewegt, dann wird es als Vordergrund erkannt.
 
 # Prozentsatz des Bildes, das oben und unten ignoriert werden soll (40% oben und 20% unten)
 crop_percent_top = 0.0
@@ -17,6 +17,23 @@ crop_percent_bottom = 0.0
 
 # Skalierungsfaktor für das verkleinerte Bild
 scale_percent = 60  # Reduziere auf 60 % der Originalgröße
+
+# Hole die Original-Dimensionen und FPS
+original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = int(cap.get(cv2.CAP_PROP_FPS))
+
+resized_width = int(original_width * scale_percent / 100)
+resized_height = int(original_height * scale_percent / 100)
+
+# Berechne die Dimensionen des kombinierten Frames (zwei Bilder nebeneinander)
+combined_width = resized_width * 2
+combined_height = resized_height
+
+# VideoWriter zum Speichern des Ausgabevideos mit den KORREKTEN Dimensionen
+output_path = 'output_background_subtraction.mp4'
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+out = cv2.VideoWriter(output_path, fourcc, fps, (combined_width, combined_height))
 
 while cap.isOpened():
     ret, frame = cap.read() # cap.read() gibt 2 Werte zurück: 1. ret: Bool, ob Frame erfolgreich gelesen 2. frame: tatsächlicher Frame im BGR-Format
@@ -44,8 +61,6 @@ while cap.isOpened():
     fgmask = fgbg.apply(cropped_frame_resized) # Wir wenden die Hintergrundsubstraktion auf den Frame an 
     # Man prüft bei jedem Frame, ob der aktuelle Pixelwert zur bestehenden Hintergrundverteilung passt - wenn nicht, wird er als Vordergrund dargestellt
 
-    fgmask[fgmask == 127] = 0  # Schatten als Hintergrund behandeln (Pixelwert 127 entspricht Schatten)
-
     # Rauschen mit morphologischen Operationen reduzieren
     fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel) # Öffnen: Erosion gefolgt von Dilatation: entfernt Rauschen
     fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_CLOSE, kernel) # Schließen: Dilatation gefolgt von Erosion: Dilatation: schließt Lücken in Vordergrundobjekten
@@ -72,6 +87,9 @@ while cap.isOpened():
     # Frames nebeneinander kombinieren
     combined_frame = cv2.hconcat([cropped_frame_resized, fgmask_resized])
 
+    out.write(combined_frame)
+
+
     # Ergebnis anzeigen
     # cv2.imshow('Original Frame', cropped_frame) # Originalvideo anzeigen
     # cv2.imshow('Foreground Mask', fgmask) # Extrahierter Vordergrund 
@@ -81,5 +99,7 @@ while cap.isOpened():
     if cv2.waitKey(30) & 0xFF == ord('q'): # Überprüfe alle 30ms, ob Taste q gedrückt wurde
         break
 
+print(f"Video erfolgreich gespeichert unter: {output_path}")
 cap.release()
+out.release()
 cv2.destroyAllWindows()

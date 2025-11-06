@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Video öffnen
-source = cv2.VideoCapture('C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\squirrel_vid1_cutted.mp4')
+source = cv2.VideoCapture('C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\Squirrels_new_cups1.mov')
 if not source.isOpened():
     raise ValueError("Error: Could not open video.")
 
@@ -25,7 +25,7 @@ while True:
         diff = cv2.absdiff(gray, prev_gray)
 
         # Threshold anwenden
-        tau = 2  # kleiner Wert = empfindlicher
+        tau = 10  # kleiner Wert = empfindlicher
         _, mask = cv2.threshold(diff, tau, 255, cv2.THRESH_BINARY)
 
         # Anzahl veränderter Pixel zählen
