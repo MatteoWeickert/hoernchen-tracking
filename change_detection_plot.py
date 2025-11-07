@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Video öffnen
-source = cv2.VideoCapture('C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\Squirrels_new_cups1.mov')
+source = cv2.VideoCapture('.\\data\\Squirrels_new_cups4.mp4')
 if not source.isOpened():
     raise ValueError("Error: Could not open video.")
 
@@ -46,7 +46,7 @@ smoothed_changes = np.convolve(changes, kernel, mode='valid')
 # --- Plot ---
 plt.figure(figsize=(10, 5))
 plt.plot(changes, label='raw data', alpha=0.5)
-plt.plot(range(len(smoothed_changes)), smoothed_changes, color='red', label=f'Geglättet (window={window_size})')
+plt.plot(range(len(smoothed_changes)), smoothed_changes, color='red', label=f'Smoothed (window={window_size})')
 plt.title("Movement / change over time")
 plt.xlabel("frame number")
 plt.ylabel("= number of changed pixel")

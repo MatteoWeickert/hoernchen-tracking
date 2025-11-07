@@ -1,22 +1,23 @@
-import cv2 #OpenCV importieren
-import numpy as np #für Morphologische Operationen (Rauschen reduzieren) - Morphologische Operationen werden in der Regel auf binäre Bilder angewendet (hier: Vordergrund weiß, Hintergrund schwarz => binär)
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
 
 # Video-Datei laden
-video_path = 'squirrel_vid1_cutted.mp4'
+video_path = '.\\data\\Squirrels_new_cups1.mp4'
 cap = cv2.VideoCapture(video_path)
 
 # Kernel für die morphologische Operation
-kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)) # elliptischer Kernel der Größe 7x7
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
 
-# Hintergrundsubstratkionsmodell initialisieren - Funktion createBackgroundSubstractorMOG2()
-fgbg = cv2.createBackgroundSubtractorKNN(history=500, detectShadows=True) # Mixture of Gaussians (MOG): Das Modell basiert auf einer Mischung von Gauss-Verteilungen (Normalverteilungen), die auf jeden Pixel des Bildes angewendet werden. Es berücksichtigt mehrere Farben und Helligkeitswerte, um Hintergrund und Vordergrund zu modellieren. Es ist adaptiv und lernt den Hintergrund kontinuierlich. Wennn sich etwas plötzlich bewegt, dann wird es als Vordergrund erkannt.
+# Hintergrundsubstraktionsmodell initialisieren
+fgbg = cv2.createBackgroundSubtractorKNN(history=250, detectShadows=True)
 
-# Prozentsatz des Bildes, das oben und unten ignoriert werden soll (40% oben und 20% unten)
+# Prozentsatz des Bildes, das oben und unten ignoriert werden soll
 crop_percent_top = 0.0
 crop_percent_bottom = 0.0
 
 # Skalierungsfaktor für das verkleinerte Bild
-scale_percent = 60  # Reduziere auf 60 % der Originalgröße
+scale_percent = 60
 
 # Hole die Original-Dimensionen und FPS
 original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -26,80 +27,82 @@ fps = int(cap.get(cv2.CAP_PROP_FPS))
 resized_width = int(original_width * scale_percent / 100)
 resized_height = int(original_height * scale_percent / 100)
 
-# Berechne die Dimensionen des kombinierten Frames (zwei Bilder nebeneinander)
+# Berechne Dimensionen des kombinierten Frames
 combined_width = resized_width * 2
 combined_height = resized_height
 
-# VideoWriter zum Speichern des Ausgabevideos mit den KORREKTEN Dimensionen
+# VideoWriter initialisieren
 output_path = 'output_background_subtraction.mp4'
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter(output_path, fourcc, fps, (combined_width, combined_height))
 
+# --- Listen für Histogramm ---
+changed_pixels_per_frame = []
+frame_numbers = []
+
+frame_idx = 0
+
 while cap.isOpened():
-    ret, frame = cap.read() # cap.read() gibt 2 Werte zurück: 1. ret: Bool, ob Frame erfolgreich gelesen 2. frame: tatsächlicher Frame im BGR-Format
-
+    ret, frame = cap.read()
     if not ret:
-        break # wenn ret=false, also kein frame mehr vorliegt wird der Prozess beendet
-    
-    ############ <Bildbereich anpassen> #############
-    # Bildhöhe und -breite des Frames herausfinden
-    height, width = frame.shape[:2] #frame.shape gibt 3 Elemente zurück 1. Höhe, 2. Breite, 3. Kanäle -> wir extrahieren Höhe und Breite
+        break
 
-    # Bereiche berechnen, die oben und unten abgeschnitten werden sollen
+    # Bildhöhe und -breite
+    height, width = frame.shape[:2]
+
+    # Zuschneiden
     top_crop = int(height * crop_percent_top)
     bottom_crop = int(height * (1 - crop_percent_bottom))
+    cropped_frame = frame[top_crop:bottom_crop, :]
 
-    # Frame auf den mittleren Bereich zuschneiden (ignoriere oberen und unteren Teil)
-    cropped_frame = frame[top_crop:bottom_crop, :] # schneide vertikal (nach der Höhe) ab, nach dem Komma würde horizontal (nach der Breite) abgeschnitten 
-
-    # Größe von cropped_frame verkleinern
+    # Größe anpassen
     width_resized = int(cropped_frame.shape[1] * scale_percent / 100)
     height_resized = int(cropped_frame.shape[0] * scale_percent / 100)
     cropped_frame_resized = cv2.resize(cropped_frame, (width_resized, height_resized))
 
-    # Hintergrundsubstraktion anwenden
-    fgmask = fgbg.apply(cropped_frame_resized) # Wir wenden die Hintergrundsubstraktion auf den Frame an 
-    # Man prüft bei jedem Frame, ob der aktuelle Pixelwert zur bestehenden Hintergrundverteilung passt - wenn nicht, wird er als Vordergrund dargestellt
+    # Hintergrundsubstraktion
+    fgmask = fgbg.apply(cropped_frame_resized)
+    fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel)
+    fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_CLOSE, kernel)
 
-    # Rauschen mit morphologischen Operationen reduzieren
-    fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel) # Öffnen: Erosion gefolgt von Dilatation: entfernt Rauschen
-    fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_CLOSE, kernel) # Schließen: Dilatation gefolgt von Erosion: Dilatation: schließt Lücken in Vordergrundobjekten
+    # --- Anzahl veränderter Pixel berechnen ---
+    changed_pixels = cv2.countNonZero(fgmask)
+    changed_pixels_per_frame.append(changed_pixels)
+    frame_numbers.append(frame_idx)
+    frame_idx += 1
 
-    # Größe des fgmask an cropped_frame anpassen (für Darstellung in einem gemeinsamen Fenster)
-    fgmask_color = cv2.cvtColor(fgmask, cv2.COLOR_GRAY2BGR)  # In 3 Kanäle konvertieren, um später beide Fenster in 1 anzeigen zu können
+    # Maske für Anzeige vorbereiten
+    fgmask_color = cv2.cvtColor(fgmask, cv2.COLOR_GRAY2BGR)
     fgmask_resized = cv2.resize(fgmask_color, (width_resized, height_resized))
 
-    # Konturen finden
-    contours, _ = cv2.findContours(fgmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) #erstes Argument ist die Maske, zweites welche Konturen gefunden werden sollen (hier nur äußere), drittens welche Punkte der Konturen gespeichert werden sollten (hier komprimiert, nicht alle Punkte der Kontur)
-
-    # Sortiere die Konturen nach ihrer Fläche und wähle die größten 5 Konturen aus
-    # contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
-
-    # Konturen auf dem Originalframe einzeichnen
-    # -1 zeichnet alle Konturen; color und thickness passen die Linienfarbe und -dicke an
+    # Konturen finden und einzeichnen
+    contours, _ = cv2.findContours(fgmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     for contour in contours:
-        if 100 < cv2.contourArea(contour):  # nur Konturen mit Fläche > 100 zeichnen (damit werden sehr große Spiegelungen nicht anerkannt (allerdings geht auch Fischkontur verloren))
-            cv2.drawContours(cropped_frame_resized, [contour], -1, (0, 0, 255), 2) # -1 lässt alle Konturen zeichnen 
-
-    # Alternative ohne Mindestfläche
-    # cv2.drawContours(cropped_frame_resized, contours, -1, (0, 255, 0), 2)
+        if 100 < cv2.contourArea(contour):  # nur Konturen >100 Pixel Fläche
+            cv2.drawContours(cropped_frame_resized, [contour], -1, (0, 0, 255), 2)
 
     # Frames nebeneinander kombinieren
     combined_frame = cv2.hconcat([cropped_frame_resized, fgmask_resized])
-
     out.write(combined_frame)
 
-
-    # Ergebnis anzeigen
-    # cv2.imshow('Original Frame', cropped_frame) # Originalvideo anzeigen
-    # cv2.imshow('Foreground Mask', fgmask) # Extrahierter Vordergrund 
+    # Anzeige (optional)
     cv2.imshow('Combined Frame', combined_frame)
-
-    # Taste 'q', um Programm zu beenden
-    if cv2.waitKey(30) & 0xFF == ord('q'): # Überprüfe alle 30ms, ob Taste q gedrückt wurde
+    if cv2.waitKey(30) & 0xFF == ord('q'):
         break
 
 print(f"Video erfolgreich gespeichert unter: {output_path}")
+
+# --- Ressourcen freigeben ---
 cap.release()
 out.release()
 cv2.destroyAllWindows()
+
+# --- Histogramm anzeigen ---
+plt.figure(figsize=(10, 5))
+plt.plot(frame_numbers, changed_pixels_per_frame, color='blue')
+plt.title('Number of Changed Pixels per Frame')
+plt.xlabel('Frame Number')
+plt.ylabel('Changed Pixels')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
