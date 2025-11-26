@@ -2,21 +2,23 @@ import cv2 #OpenCV importieren
 import numpy as np #für Morphologische Operationen (Rauschen reduzieren) - Morphologische Operationen werden in der Regel auf binäre Bilder angewendet (hier: Vordergrund weiß, Hintergrund schwarz => binär)
 
 # Video-Datei laden
-video_path = 'squirrel_vid1_cutted.mp4'
+video_path = 'videos\Squirrels_new_cups1.mp4'
 cap = cv2.VideoCapture(video_path)
 
 # Kernel für die morphologische Operation
-kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)) # elliptischer Kernel der Größe 7x7
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)) # elliptischer Kernel der Größe 7x7
 
 # Hintergrundsubstratkionsmodell initialisieren - Funktion createBackgroundSubstractorMOG2()
-fgbg = cv2.createBackgroundSubtractorKNN(history=500, detectShadows=True) # Mixture of Gaussians (MOG): Das Modell basiert auf einer Mischung von Gauss-Verteilungen (Normalverteilungen), die auf jeden Pixel des Bildes angewendet werden. Es berücksichtigt mehrere Farben und Helligkeitswerte, um Hintergrund und Vordergrund zu modellieren. Es ist adaptiv und lernt den Hintergrund kontinuierlich. Wennn sich etwas plötzlich bewegt, dann wird es als Vordergrund erkannt.
+fgbg = cv2.createBackgroundSubtractorMOG2(history=800, varThreshold=20, detectShadows=True) # Mixture of Gaussians (MOG): Das Modell basiert auf einer Mischung von Gauss-Verteilungen (Normalverteilungen), die auf jeden Pixel des Bildes angewendet werden. Es berücksichtigt mehrere Farben und Helligkeitswerte, um Hintergrund und Vordergrund zu modellieren. Es ist adaptiv und lernt den Hintergrund kontinuierlich. Wennn sich etwas plötzlich bewegt, dann wird es als Vordergrund erkannt.
+
+#fgbg = cv2.createBackgroundSubtractorKNN(history=300, detectShadows=True) # Mixture of Gaussians (MOG): Das Modell basiert auf einer Mischung von Gauss-Verteilungen (Normalverteilungen), die auf jeden Pixel des Bildes angewendet werden. Es berücksichtigt mehrere Farben und Helligkeitswerte, um Hintergrund und Vordergrund zu modellieren. Es ist adaptiv und lernt den Hintergrund kontinuierlich. Wennn sich etwas plötzlich bewegt, dann wird es als Vordergrund erkannt.
 
 # Prozentsatz des Bildes, das oben und unten ignoriert werden soll (40% oben und 20% unten)
 crop_percent_top = 0.0
 crop_percent_bottom = 0.0
 
 # Skalierungsfaktor für das verkleinerte Bild
-scale_percent = 60  # Reduziere auf 60 % der Originalgröße
+scale_percent = 20  # Reduziere auf 20 % der Originalgröße
 
 # Hole die Original-Dimensionen und FPS
 original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -77,9 +79,9 @@ while cap.isOpened():
 
     # Konturen auf dem Originalframe einzeichnen
     # -1 zeichnet alle Konturen; color und thickness passen die Linienfarbe und -dicke an
-    for contour in contours:
-        if 100 < cv2.contourArea(contour):  # nur Konturen mit Fläche > 100 zeichnen (damit werden sehr große Spiegelungen nicht anerkannt (allerdings geht auch Fischkontur verloren))
-            cv2.drawContours(cropped_frame_resized, [contour], -1, (0, 0, 255), 2) # -1 lässt alle Konturen zeichnen 
+    # for contour in contours:
+    #     if 100 < cv2.contourArea(contour):  # nur Konturen mit Fläche > 100 zeichnen (damit werden sehr große Spiegelungen nicht anerkannt (allerdings geht auch Fischkontur verloren))
+    #         cv2.drawContours(cropped_frame_resized, [contour], -1, (0, 0, 255), 2) # -1 lässt alle Konturen zeichnen 
 
     # Alternative ohne Mindestfläche
     # cv2.drawContours(cropped_frame_resized, contours, -1, (0, 255, 0), 2)

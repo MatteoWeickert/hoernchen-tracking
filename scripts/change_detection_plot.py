@@ -3,9 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Video öffnen
-source = cv2.VideoCapture('C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\Squirrels_new_cups1.mov')
+source = cv2.VideoCapture('videos/20241008_TrepN_04_in (2) (1).MOV')
 if not source.isOpened():
     raise ValueError("Error: Could not open video.")
+
+# FPS (Frames pro Sekunde) des Videos abrufen
+fps = source.get(cv2.CAP_PROP_FPS)
+print(f"Video FPS: {fps}")
 
 # Initialisierung
 prev_gray = None
@@ -38,17 +42,23 @@ while True:
 source.release()
 print(f"Done – {frame_idx} Frames processed.")
 
+# Zeitachse in Sekunden erstellen
+# Wir erstellen ein Array von Frame-Nummern und teilen es durch die FPS
+time_axis = np.arange(len(changes)) / fps
+
 # --- Glätten (Moving Average) ---
 window_size = 10  # Anzahl der Frames für den Mittelwert
 kernel = np.ones(window_size) / window_size
 smoothed_changes = np.convolve(changes, kernel, mode='valid')
+smoothed_time_axis = np.arange(len(smoothed_changes)) / fps
+
 
 # --- Plot ---
 plt.figure(figsize=(10, 5))
 plt.plot(changes, label='raw data', alpha=0.5)
-plt.plot(range(len(smoothed_changes)), smoothed_changes, color='red', label=f'Geglättet (window={window_size})')
+plt.plot(smoothed_time_axis, smoothed_changes, color='red', label=f'Geglättet (window={window_size})')
 plt.title("Movement / change over time")
-plt.xlabel("frame number")
+plt.xlabel("time in s")
 plt.ylabel("= number of changed pixel")
 plt.legend()
 plt.grid(True)

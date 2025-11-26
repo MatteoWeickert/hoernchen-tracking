@@ -2,9 +2,9 @@ import cv2
 import numpy as np
 
 # --- KONFIGURATION ---
-VIDEO_PATH = 'C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\squirrel_vid1_cutted.mp4'
+VIDEO_PATH = 'videos\Squirrels_new_leaf2.mp4'
 THRESHOLD_VALUE = 10      # Schwellenwert für die Bewegungserkennung
-RESIZE_FACTOR = 0.7       # EINHEITLICHER Faktor zur Verkleinerung (0.7 = 70%)
+RESIZE_FACTOR = 0.2       # EINHEITLICHER Faktor zur Verkleinerung (0.7 = 70%)
 
 # --- VIDEO ÖFFNEN ---
 cap = cv2.VideoCapture(VIDEO_PATH)
