@@ -1,0 +1,16 @@
+path: .
+
+train: scripts/yolo/dataset/images/train
+val: scripts/yolo/dataset/images/val
+test: scripts/yolo/dataset/images/test
+
+nc: 7
+
+names:
+  0: squirrel_head_entry
+  1: squirrel_halfway_entry
+  2: squirrel_full_entry
+  3: cup_full
+  4: cup_empty
+  5: nut
+  6: disco_ball

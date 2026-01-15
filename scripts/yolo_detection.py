@@ -3,10 +3,10 @@ from ultralytics import YOLO
 
 # 1. Lade das vortrainierte YOLOv8-Modell
 # 'yolov8n.pt' ist das kleinste und schnellste Modell
-model = YOLO('yolov8n.pt')
+model = YOLO('yolo11n.pt')
 
 # 2. Öffne deine Videodatei
-video_path = 'squirrel_vid1_cutted.mp4'
+video_path = 'videos/20241108_TrepN_04_out.mp4'
 cap = cv2.VideoCapture(video_path)
 
 if not cap.isOpened():
@@ -19,7 +19,7 @@ frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 fps = int(cap.get(cv2.CAP_PROP_FPS))
 
 # VideoWriter zum Speichern des Ausgabevideos
-output_path = 'output_squirrel_detection.mp4'
+output_path = 'output_squirrel_detection_cups.mp4'
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
@@ -39,7 +39,7 @@ while cap.isOpened():
     out.write(annotated_frame)
 
     # Zeige den bearbeiteten Frame an
-    cv2.imshow("YOLOv8n Squirrel Detection", annotated_frame)
+    cv2.imshow("YOLOv11n Squirrel Detection", annotated_frame)
 
     # Taste 'q', um Programm zu beenden
     if cv2.waitKey(1) & 0xFF == ord('q'):

@@ -4,3 +4,8 @@
 venv/
 *.mp4
 *.pt
+*.txt
+*.png
+*.jpg
+*.avi
+*.ndjson

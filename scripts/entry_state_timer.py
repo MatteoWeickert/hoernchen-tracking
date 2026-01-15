@@ -98,7 +98,7 @@ while cap.isOpened():
     status = "LEER"
     color = (200, 200, 200)
 
-    THRESHOLD_PEEK = 100   # Ein paar Pixel am Eingang
+    THRESHOLD_PEEK = 80   # Ein paar Pixel am Eingang
     THRESHOLD_INSIDE = 1500 # Deutliche Bewegung im hinteren Bereich
 
     # Timer Cooldown herunterzählen
