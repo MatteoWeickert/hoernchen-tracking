@@ -14,7 +14,7 @@ video_path2 = "C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Ma
 video_path3 = "C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\videos\\box_analysis_videos\\20241107_TrepS_01_in (2)_cut_updated.mp4"
 video_path4 = "C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\videos\\box_analysis_videos\\20241107_TrepS_01_in (3)_cut.mp4"
 video_path5 = "C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\videos\\box_analysis_videos\\20241108_TrepS_01_in (4)_cut_updated.mp4"
-video_path = video_path5 # Hier kannst du zwischen den Videos wechseln
+video_path = video_path3 # Hier kannst du zwischen den Videos wechseln
 
 
 class TrackedObject:
@@ -25,11 +25,10 @@ class TrackedObject:
         self.box = initial_box  # [x, y, w, h]
         self.center = self._get_center(initial_box)
         
-        # Status History: 0=Sichtbar, 1=Verdeckt/Verloren (kurz), 2=Weg (lang)
+        # Status History: 0=Sichtbar, 1=Nicht sichtbar & Hörnchen noch in Box, 2=Nicht Sichtbar & Hörnchen weg (vermutlich interagiert)
         self.history_status = [] 
         self.history_frames = []
         
-        self.missing_counter = 0  # Wie viele Frames nicht gesehen?
         self.squirrel_absent_counter = 0 # Seit wie vielen Frames ist das Eichhörnchen weg?
         self.is_active = True     # Ist das Objekt noch Teil der Simulation?
 
@@ -40,7 +39,6 @@ class TrackedObject:
     def update(self, new_box, frame_id):
         self.box = new_box
         self.center = self._get_center(new_box)
-        self.missing_counter = 0
         self.history_status.append(0) # 0 = Grün (Sichtbar)
         self.history_frames.append(frame_id)
 
@@ -52,20 +50,21 @@ class TrackedObject:
         :param frame_id: Description
         :param is_squirrel_present: Description
         """
-        # Wenn < 30 Frames weg -> Gestrichelt (Vielleicht verdeckt)
-        # Wenn > 30 Frames weg -> Rot (Interagiert/Weg)
+        
         current_status = 1 # Orange, vermutlich verdecktes Objekt
         if is_squirrel_present:
             current_status = 1
-            self.missing_counter += 1
             self.squirrel_absent_counter = 0 # Reset counter when squirrel is present
 
         else:
             self.squirrel_absent_counter += 1
-            if self.squirrel_absent_counter > 20:
+            if self.squirrel_absent_counter > 10:
                 current_status = 2 # Rot, vermutlich interagiert oder weg
             else:
                 current_status = 1 # Orange, Hörnchen für ein paar Frames nicht erkannt
+
+        if self.class_name == 'squirrel':
+            current_status = 2
 
         self.history_status.append(current_status)
         self.history_frames.append(frame_id)
@@ -138,7 +137,7 @@ def run_tracking(video_path, model, tracked_objects):
     
     # Plot Setup (Matplotlib interaktiv)
     plt.ion()
-    fig, ax = plt.subplots(figsize=(10, 4))
+    fig, ax = plt.subplots(figsize=(11, 4))
     fig.show()
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -192,8 +191,6 @@ def run_tracking(video_path, model, tracked_objects):
         for i, obj in enumerate(tracked_objects):
             for j, box in enumerate(current_boxes):
                 iou = calculate_iou(obj.box, box)
-                # Distanz als Fallback, falls IoU 0 (wegen Umkippen)
-                # Wir gewichten IoU aber sehr hoch
                 cost_matrix[i, j] = 1 - iou
 
         # Hungarian Assignment
@@ -302,6 +299,7 @@ def update_plot(fig, ax, plot_state, tracked_objects, squirrel_obj):
     # Y-Achse nur aktualisieren wenn neue Objekte dazu kamen
     ax.set_yticks(range(len(all_objs)))
     ax.set_yticklabels([f"{obj.class_name} {obj.id}" for obj in all_objs if obj])
+    ax.set_ylim(-1, len(all_objs))
 
     fig.canvas.draw_idle()
     fig.canvas.flush_events()
