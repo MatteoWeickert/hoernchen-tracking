@@ -3,10 +3,11 @@ from ultralytics import YOLO
 
 # 1. Lade das vortrainierte YOLOv8-Modell
 # 'yolov8n.pt' ist das kleinste und schnellste Modell
-model = YOLO('yolo11n.pt')
+model = YOLO('C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\runs\\detect\\train3\\weights\\best.pt')
+model_andi = YOLO('C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\runs\\detect\\best_andi.pt')
 
 # 2. Öffne deine Videodatei
-video_path = 'videos/20241108_TrepN_04_out.mp4'
+video_path = "C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\videos\\20241015_TrepS_02_in (1)_clip-2.mp4"
 cap = cv2.VideoCapture(video_path)
 
 if not cap.isOpened():
@@ -19,7 +20,7 @@ frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 fps = int(cap.get(cv2.CAP_PROP_FPS))
 
 # VideoWriter zum Speichern des Ausgabevideos
-output_path = 'output_squirrel_detection_cups.mp4'
+output_path = 'output_squirrel_detection_outside.mp4'
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
@@ -31,15 +32,15 @@ while cap.isOpened():
 
     # 4. Führe die Objekterkennung auf dem Frame aus
     results = model(frame)
+    results_andi = model_andi(frame)
 
     # 5. Visualisiere die Ergebnisse
     # results enthält alle erkannten Objekte
-    annotated_frame = results[0].plot()
-
-    out.write(annotated_frame)
+    annotated_frame_andi = results_andi[0].plot()
+    out.write(annotated_frame_andi)
 
     # Zeige den bearbeiteten Frame an
-    cv2.imshow("YOLOv11n Squirrel Detection", annotated_frame)
+    cv2.imshow("YOLOv11n Squirrel Detection", annotated_frame_andi)
 
     # Taste 'q', um Programm zu beenden
     if cv2.waitKey(1) & 0xFF == ord('q'):
