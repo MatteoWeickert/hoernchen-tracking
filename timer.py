@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-# --- KONFIGURATION ---
+# --- KONFIGURATION --- test
 VIDEO_PATH = '/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_leaf2.mp4'
 THRESHOLD_VALUE = 20      # Schwellenwert für Bewegungserkennung
 RESIZE_FACTOR = 0.7       
