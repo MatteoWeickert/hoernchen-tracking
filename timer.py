@@ -1,18 +1,18 @@
 import cv2
 import numpy as np
 
-# --- KONFIGURATION --- test
+# --- CONFIGURATION ---
 VIDEO_PATH = '/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_leaf2.mp4'
-THRESHOLD_VALUE = 20      # Schwellenwert für Bewegungserkennung
+THRESHOLD_VALUE = 20      # Threshold for motion detection
 RESIZE_FACTOR = 0.7       
-MIN_CONTOUR_AREA = 300    # Mindestgröße eines Objekts (in Pixeln) - feiner eingestellt!
+MIN_CONTOUR_AREA = 300    # Minimum object size in pixels
 
-# --- VIDEO ÖFFNEN ---
+# --- OPEN VIDEO ---
 cap = cv2.VideoCapture(VIDEO_PATH)
 if not cap.isOpened():
     raise ValueError(f"Error: Could not open video file at {VIDEO_PATH}")
 
-# --- INITIALISIERUNG ---
+# --- INITIALIZATION ---
 prev_gray = None
 frame_idx = 0
 
@@ -24,15 +24,16 @@ delay = int(1000 / fps) if fps > 0 else 30
 resized_width = int(original_width * RESIZE_FACTOR)
 resized_height = int(original_height * RESIZE_FACTOR)
 
+# Setup video writer
 output_path = 'output_squirrel_tracking.mp4'
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter(output_path, fourcc, fps, (resized_width, resized_height))
 
-# --- ZEIT-TRACKING VARIABLEN ---
+# Timer tracking variables
 frames_with_movement = 0
 total_frames = 0
 
-# --- SCHLEIFE ÜBER ALLE FRAMES ---
+# --- MAIN LOOP ---
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
@@ -42,28 +43,28 @@ while cap.isOpened():
     frame_resized = cv2.resize(frame, (resized_width, resized_height), interpolation=cv2.INTER_AREA)
     gray = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2GRAY)
     
-    # Gaußscher Blur um Rauschen zu reduzieren
+    # Apply Gaussian blur to reduce noise
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
     if prev_gray is not None:
-        # Differenz berechnen
+        # Calculate frame difference
         diff = cv2.absdiff(gray, prev_gray)
         
-        # Threshold anwenden
+        # Apply threshold
         _, mask = cv2.threshold(diff, THRESHOLD_VALUE, 255, cv2.THRESH_BINARY)
         
-        # Morphologische Operationen um kleine Bewegungen (Blätter) zu entfernen
+        # Morphological operations to remove small movements (leaves)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)  # Entfernt kleine weiße Flecken
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)  # Füllt kleine Löcher
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)   # Remove small white spots
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)  # Fill small holes
         
-        # Dilatation um Objekte etwas zu vergrößern
+        # Dilate to slightly enlarge objects
         mask = cv2.dilate(mask, kernel, iterations=2)
         
-        # Finde Konturen (zusammenhängende Bewegungsobjekte)
+        # Find contours (connected motion objects)
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
-        # Filtere nach Größe und zeichne Bounding Boxes
+        # Filter by size and draw bounding boxes
         frame_with_boxes = frame_resized.copy()
         
         squirrel_detected = False
@@ -71,40 +72,40 @@ while cap.isOpened():
         
         for contour in contours:
             area = cv2.contourArea(contour)
-            if area > MIN_CONTOUR_AREA:  # Nur große Objekte (Eichhörnchen)
+            if area > MIN_CONTOUR_AREA:  # Only large objects (squirrels)
                 large_contours += 1
                 squirrel_detected = True
                 
-                # Zeichne Bounding Box
+                # Draw bounding box
                 x, y, w, h = cv2.boundingRect(contour)
                 cv2.rectangle(frame_with_boxes, (x, y), (x+w, y+h), (0, 255, 0), 2)
                 
-                # Zeige Größe an
+                # Display area
                 cv2.putText(frame_with_boxes, f"{int(area)}px", (x, y-5), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         
-        # Zähle Frame nur wenn großes Objekt erkannt wurde
+        # Count frame only if large object detected
         if squirrel_detected:
             frames_with_movement += 1
-            status_text = f"EICHHOERNCHEN! ({large_contours} Objekt(e))"
+            status_text = f"SQUIRREL! ({large_contours} object(s))"
             color = (0, 255, 0)
         else:
-            status_text = f"Keine relevante Bewegung"
+            status_text = f"No relevant movement"
             color = (0, 0, 255)
         
-        # Status-Text
+        # Status text
         cv2.putText(frame_with_boxes, status_text, (10, 30), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
         
-        # Zeit-Info
+        # Time info
         time_in_seconds = frames_with_movement / fps
         minutes = int(time_in_seconds // 60)
         seconds = int(time_in_seconds % 60)
-        time_text = f"Zeit: {minutes:02d}:{seconds:02d}"
+        time_text = f"Time: {minutes:02d}:{seconds:02d}"
         cv2.putText(frame_with_boxes, time_text, (10, 60), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
         
-        # Nur das Original-Video mit Annotations speichern
+        # Save and display annotated video
         out.write(frame_with_boxes)
         cv2.imshow('Squirrel Tracking', frame_with_boxes)
     else:
@@ -119,7 +120,7 @@ while cap.isOpened():
         print("Video processing stopped by user.")
         break
 
-# --- AUFRÄUMEN UND ERGEBNISSE ---
+# --- CLEANUP AND RESULTS ---
 cap.release()
 out.release()
 cv2.destroyAllWindows()
@@ -129,12 +130,12 @@ minutes = int(total_time_seconds // 60)
 seconds = total_time_seconds % 60
 
 print(f"\n{'='*50}")
-print(f"ERGEBNISSE:")
+print(f"RESULTS:")
 print(f"{'='*50}")
-print(f"Video erfolgreich gespeichert unter: {output_path}")
-print(f"Verarbeitete Frames: {frame_idx}")
-print(f"Frames mit Eichhörnchen: {frames_with_movement}")
-print(f"Anteil: {frames_with_movement/total_frames*100:.1f}%")
-print(f"\nZeit mit Eichhörnchen-Aktivität: {minutes} Minuten {seconds:.1f} Sekunden")
-print(f"(= {total_time_seconds:.2f} Sekunden)")
+print(f"Video successfully saved to: {output_path}")
+print(f"Processed frames: {frame_idx}")
+print(f"Frames with squirrel: {frames_with_movement}")
+print(f"Percentage: {frames_with_movement/total_frames*100:.1f}%")
+print(f"\nTime with squirrel activity: {minutes} minutes {seconds:.1f} seconds")
+print(f"(= {total_time_seconds:.2f} seconds)")
 print(f"{'='*50}\n")
