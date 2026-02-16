@@ -1,9 +1,10 @@
 import cv2
 import numpy as np
 
+
 # Configuration
-VIDEO_PATH = "/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_leaf1.mp4"
-OUTPUT_IMAGE_PATH = "movement_profile_leaf1.png"
+VIDEO_PATH = "/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_cups1.mp4"
+OUTPUT_IMAGE_PATH = "movement_profile_cups1.png"
 
 THRESHOLD_VALUE = 20
 RESIZE_FACTOR = 0.7
@@ -11,7 +12,7 @@ MIN_CONTOUR_AREA = 300
 MAX_STEP_DISTANCE = 800
 
 
-# Open Video
+# Open video
 cap = cv2.VideoCapture(VIDEO_PATH)
 if not cap.isOpened():
     raise ValueError(f"Could not open video file: {VIDEO_PATH}")
@@ -19,6 +20,7 @@ if not cap.isOpened():
 fps = cap.get(cv2.CAP_PROP_FPS)
 original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 resized_width = int(original_width * RESIZE_FACTOR)
 resized_height = int(original_height * RESIZE_FACTOR)
@@ -26,32 +28,25 @@ resized_height = int(original_height * RESIZE_FACTOR)
 print(f"Processing video at {fps:.2f} FPS...")
 
 
-# Tracking Initialization
+# Tracking initialization
 prev_gray = None
-background_frame = None
 frame_idx = 0
-
-# Stores (x, y, frame_index)
-trajectory_data = []
+trajectory_data = []  # (x, y, frame_index)
 
 
-# Frame Processing Loop
+# Process all frames for motion tracking
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         print("End of video reached.")
         break
 
-    # Resize and preprocess frame
     frame_resized = cv2.resize(
         frame, (resized_width, resized_height), interpolation=cv2.INTER_AREA
     )
+
     gray = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
-
-    # Store first frame as background reference
-    if background_frame is None:
-        background_frame = frame_resized.copy()
 
     if prev_gray is not None:
         # Frame differencing
@@ -64,18 +59,16 @@ while cap.isOpened():
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
         mask = cv2.dilate(mask, kernel, iterations=2)
 
-        # Detect contours
         contours, _ = cv2.findContours(
             mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
 
         if contours:
-            largest_contour = max(contours, key=cv2.contourArea)
-            area = cv2.contourArea(largest_contour)
+            largest = max(contours, key=cv2.contourArea)
+            area = cv2.contourArea(largest)
 
-            # Filter small detections
             if area > MIN_CONTOUR_AREA:
-                M = cv2.moments(largest_contour)
+                M = cv2.moments(largest)
                 if M["m00"] != 0:
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
@@ -87,9 +80,23 @@ while cap.isOpened():
 cap.release()
 
 
-# Movement Profile Creation
-if background_frame is None or len(trajectory_data) < 2:
-    print("No valid movement detected or no background available.")
+# Extract last frame as background
+cap = cv2.VideoCapture(VIDEO_PATH)
+cap.set(cv2.CAP_PROP_POS_FRAMES, total_frames - 1)
+ret, last_frame = cap.read()
+cap.release()
+
+if not ret:
+    raise ValueError("Could not read last frame for background.")
+
+background_frame = cv2.resize(
+    last_frame, (resized_width, resized_height), interpolation=cv2.INTER_AREA
+)
+
+
+# Create movement profile
+if len(trajectory_data) < 2:
+    print("No valid movement detected.")
     exit()
 
 profile_image = background_frame.copy()
@@ -97,7 +104,7 @@ profile_image = background_frame.copy()
 speeds = []
 valid_segments = []
 
-# Compute per-frame speed between consecutive points
+# Compute speed between consecutive trajectory points
 for i in range(len(trajectory_data) - 1):
     x1, y1, f1 = trajectory_data[i]
     x2, y2, f2 = trajectory_data[i + 1]
@@ -110,7 +117,6 @@ for i in range(len(trajectory_data) - 1):
     speed = distance / frame_diff if frame_diff > 0 else 0
     speeds.append(speed)
 
-    # Filter unrealistic jumps
     if distance <= MAX_STEP_DISTANCE:
         valid_segments.append(i)
 
@@ -122,15 +128,15 @@ valid_speeds = [speeds[i] for i in valid_segments]
 min_speed = min(valid_speeds)
 max_speed = max(valid_speeds)
 
-# Draw trajectory segments color-coded by speed
+
+# Draw speed-colored trajectory
 for i in valid_segments:
     if max_speed > min_speed:
         normalized = (speeds[i] - min_speed) / (max_speed - min_speed)
     else:
         normalized = 0.5
 
-    # Invert: red = slow, green = fast
-    progress = 1 - normalized
+    progress = 1 - normalized  # red = slow, green = fast
 
     if progress > 0.5:
         b = 0
@@ -151,6 +157,7 @@ for i in valid_segments:
 
 # Legend
 legend_y = resized_height - 60
+
 cv2.putText(
     profile_image, "Speed:", (10, legend_y),
     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1
@@ -160,15 +167,15 @@ bar_width = 100
 for x in range(bar_width):
     progress = x / bar_width
     if progress < 0.5:
-        b, g, r = 0, 255, int(255 * (progress * 2))
+        color = (0, 255, int(255 * (progress * 2)))
     else:
-        b, g, r = 0, int(255 * (1 - (progress - 0.5) * 2)), 255
+        color = (0, int(255 * (1 - (progress - 0.5) * 2)), 255)
 
     cv2.line(
         profile_image,
         (10 + x, legend_y + 10),
         (10 + x, legend_y + 20),
-        (b, g, r),
+        color,
         2,
     )
 
@@ -212,8 +219,6 @@ print("\nSpeed statistics:")
 print(f"  Min: {min_speed_display:.2f} px/frame")
 print(f"  Max: {max_speed_display:.2f} px/frame")
 print(f"  Avg: {avg_speed:.2f} px/frame")
-print("\nRED = Slow")
-print("GREEN = Fast")
 print("=" * 50 + "\n")
 
 cv2.imshow("Movement Profile", profile_image)

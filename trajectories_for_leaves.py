@@ -3,8 +3,8 @@ import numpy as np
 
 
 # Configuration
-VIDEO_PATH = "/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_leaf1.mp4"
-OUTPUT_IMAGE_PATH = "combined_analysis.png"
+VIDEO_PATH = "/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_leaf2.mp4"
+OUTPUT_IMAGE_PATH = "trajectories_leaf2.png"
 
 THRESHOLD_VALUE = 20
 RESIZE_FACTOR = 0.7
