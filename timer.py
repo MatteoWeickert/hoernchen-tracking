@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # --- CONFIGURATION ---
-VIDEO_PATH = '/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_leaf2.mp4'
+VIDEO_PATH = '/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_cups2.mp4'
 THRESHOLD_VALUE = 20      # Threshold for motion detection
 RESIZE_FACTOR = 0.7       
 MIN_CONTOUR_AREA = 300    # Minimum object size in pixels
@@ -102,8 +102,9 @@ while cap.isOpened():
         minutes = int(time_in_seconds // 60)
         seconds = int(time_in_seconds % 60)
         time_text = f"Time: {minutes:02d}:{seconds:02d}"
-        cv2.putText(frame_with_boxes, time_text, (10, 60), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        cv2.putText(frame_with_boxes, time_text, (10, 80), 
+            cv2.FONT_HERSHEY_SIMPLEX, 1.8, (255, 255, 255), 4)
+
         
         # Save and display annotated video
         out.write(frame_with_boxes)

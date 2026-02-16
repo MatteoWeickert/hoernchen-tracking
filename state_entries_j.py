@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- CONFIGURATION ---
-VIDEO_PATH = '/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_cups2.mp4'
+VIDEO_PATH = '/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/TrepN_04_disco5.mp4'
 CROP_PERCENT_TOP = 0.0
 CROP_PERCENT_BOTTOM = 0.0
 SCALE_PERCENT = 60  # Resize frame to 60%
