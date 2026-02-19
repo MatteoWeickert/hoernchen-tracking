@@ -8,7 +8,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 from pathlib import Path
 
-
 def load_excel_data(excel_path, study_site, box_nr):
     """Loads and filters Excel data"""
     print("\n" + "=" * 70)
@@ -34,56 +33,21 @@ def load_excel_data(excel_path, study_site, box_nr):
     if len(df) == 0:
         raise ValueError("No data after filtering!")
     
-    # Create datetime
+    # Create datetime - ROBUST gegen leere time-Werte
     print("\n  Processing timestamps...")
     
-    sample_date = df['date'].iloc[0]
-    sample_time = df['time'].iloc[0]
+    # Kombiniere date + time (mit error handling für leere Zeiten)
+    df['datetime'] = pd.to_datetime(
+        df['date'].astype(str) + ' ' + df['time'].astype(str),
+        format='mixed',  # Flexibles Format
+        errors='coerce'  # Ungültige Werte → NaT (Not a Time)
+    )
     
-    print(f"  Example date: {sample_date}")
-    print(f"  Example time: {sample_time}")
-    
-    # Convert date to datetime
-    date_col = pd.to_datetime(df['date'])
-    
-    # Handle time - ROBUST for mixed formats!
-    from datetime import time as dt_time
-    
-    print("  → Analyzing time column...")
-    
-    # Check all types in the column
-    time_types = df['time'].apply(type).unique()
-    print(f"  → Found types: {[t.__name__ for t in time_types]}")
-    
-    # Convert each row individually
-    datetime_list = []
-    
-    for idx, row in df.iterrows():
-        date_val = pd.to_datetime(row['date'])
-        time_val = row['time']
-        
-        if isinstance(time_val, float):
-            # Excel decimal time
-            time_delta = pd.Timedelta(days=time_val)
-            dt = date_val + time_delta
-        elif isinstance(time_val, dt_time):
-            # time object
-            dt = pd.Timestamp.combine(date_val.date(), time_val)
-        elif isinstance(time_val, pd.Timestamp):
-            # Already datetime - combine date from date_val with time from time_val
-            dt = pd.Timestamp.combine(date_val.date(), time_val.time())
-        else:
-            # String or other - try to parse
-            try:
-                time_dt = pd.to_datetime(time_val).time()
-                dt = pd.Timestamp.combine(date_val.date(), time_dt)
-            except:
-                print(f"  ⚠️  Could not parse row {idx}: time={time_val} (Type: {type(time_val)})")
-                dt = date_val
-        
-        datetime_list.append(dt)
-    
-    df['datetime'] = datetime_list
+    # Entferne Zeilen mit ungültigen Timestamps
+    invalid_count = df['datetime'].isna().sum()
+    if invalid_count > 0:
+        print(f"  ⚠️  Removed {invalid_count} rows with invalid timestamps")
+        df = df.dropna(subset=['datetime'])
     
     print(f"✓ Datetime created!")
     print(f"  Example: {df['datetime'].iloc[0]}")
@@ -191,7 +155,7 @@ def find_squirrels_in_video(video_start_time, video_duration_sec, squirrel_data,
 
 
 def create_annotated_video(video_path, video_start_time, matches, output_path):
-    """Creates video with squirrel names"""
+    """Creates video with squirrel names - NO STATISTICS BOX"""
     
     if len(matches) == 0:
         print("\n⚠️  No matches - cannot create video")
@@ -233,15 +197,6 @@ def create_annotated_video(video_path, video_start_time, matches, output_path):
     for name in matches['name'].unique():
         visit_counts[name] = 0
     
-    # Get squirrel info for the stats box
-    squirrel_info = {}
-    for name in matches['name'].unique():
-        first_occurrence = matches[matches['name'] == name].iloc[0]
-        squirrel_info[name] = {
-            'sex': first_occurrence.get('sex', 'N/A'),
-            'id': first_occurrence.get('ID', 'N/A')
-        }
-    
     print(f"  Processing {total_frames} frames...")
     
     frame_count = 0
@@ -278,44 +233,6 @@ def create_annotated_video(video_path, video_start_time, matches, output_path):
         # Squirrel disappears after DISAPPEAR_AFTER frames without new match
         if current_squirrel and (frame_count - last_squirrel_frame) > DISAPPEAR_AFTER:
             current_squirrel = None
-        
-        # === STATISTICS BOX (bottom right) - ALWAYS VISIBLE ===
-        stats_height = 60 + len(squirrel_info) * 35
-        stats_width = 300
-        stats_x = width - stats_width - 10
-        stats_y = height - stats_height - 10
-        
-        # Black background for stats
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (stats_x, stats_y), (width - 10, height - 10), (0, 0, 0), -1)
-        frame = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)
-        
-        # Header
-        cv2.putText(frame, "Visit Statistics", 
-                   (stats_x + 10, stats_y + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 100), 2)
-        
-        # Draw line under header
-        cv2.line(frame, (stats_x + 10, stats_y + 35), (width - 20, stats_y + 35), (100, 100, 100), 1)
-        
-        # List all squirrels with their visit counts
-        y_offset = stats_y + 55
-        for name in sorted(squirrel_info.keys()):
-            info = squirrel_info[name]
-            sex_symbol = "♀" if info['sex'] == 'female' else "♂" if info['sex'] == 'male' else "?"
-            visits = visit_counts[name]
-            
-            # Highlight current squirrel
-            if current_squirrel and current_squirrel['name'] == name:
-                color = (0, 255, 255)  # Cyan for active squirrel
-                thickness = 2
-            else:
-                color = (200, 200, 200)  # Gray for inactive
-                thickness = 1
-            
-            text = f"{name} {sex_symbol}: {visits} visits"
-            cv2.putText(frame, text, 
-                       (stats_x + 15, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, thickness)
-            y_offset += 35
         
         # === CURRENT SQUIRREL ANNOTATION (top left) - only when active ===
         if current_squirrel:
@@ -385,7 +302,7 @@ def main():
     print(f"  Box Nr: {BOX_NR}")
     print(f"  Start Time: {VIDEO_START_TIME.strftime('%d.%m.%Y %H:%M:%S')}")
     
-    TIME_TOLERANCE = 60  # Seconds
+    TIME_TOLERANCE = 5  # Seconds
     print(f"  Tolerance: ±{TIME_TOLERANCE} seconds")
     
     # Output

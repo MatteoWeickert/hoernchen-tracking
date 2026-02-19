@@ -3,20 +3,21 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-# --- Video laden ---
-video_path = ".\\data\\Sam_3_b_w.mp4"
+# load video
+video_path = ".\\data\\Squirrels_new_cups1.mp4"
 cap = cv2.VideoCapture(video_path)
 if not cap.isOpened():
-    raise ValueError("Video konnte nicht geöffnet werden!")
+    raise ValueError("Could not open video!")
 
-# --- Zielordner für Frames ---
+# target folder for frames
 output_folder = "frames"
 os.makedirs(output_folder, exist_ok=True)
 
-# --- Background Subtractor ---
+# Background Subtractor 
+
 backSub = cv2.createBackgroundSubtractorKNN(history=250, detectShadows=True)
 
-# --- Heatmap initialisieren ---
+# Initialize heatmap
 heatmap = None
 
 frame_idx = 0
@@ -24,35 +25,35 @@ frame_idx = 0
 while True:
     ret, frame = cap.read()
     if not ret:
-        break  # Ende des Videos
+        break  # End of video
 
-    # Frames kleiner machen, um RAM zu sparen
+    # Resize frames to save RAM
     frame = cv2.resize(frame, (640, 480))
 
     # Background Subtraction
     fgMask = backSub.apply(frame)
 
-    # Heatmap initialisieren, sobald die Größe bekannt ist
+    # Initialize heatmap once size is known
     if heatmap is None:
         heatmap = np.zeros_like(fgMask, dtype=np.float32)
 
-    # Bewegung aufsummieren
-    heatmap += fgMask / 255  # Normierung: weiß = 1
+    # Accumulate movement
+    heatmap += fgMask / 255  # Normalization: white = 1
 
-    # Frame speichern (optional)
+    # Save frame 
     frame_name = os.path.join(output_folder, f"frame_{frame_idx:04d}.png")
     cv2.imwrite(frame_name, frame)
 
     frame_idx += 1
     if frame_idx % 50 == 0:
-        print(f"{frame_idx} Frames verarbeitet...")
+        print(f"{frame_idx} frames processed...")
 
 cap.release()
-print(f"Fertig! Insgesamt {frame_idx} Frames verarbeitet.")
+print(f"Done! Total {frame_idx} frames processed.")
 
-# --- Heatmap visualisieren ---
-plt.figure(figsize=(10,6))
+# Plot
+plt.figure(figsize=(10, 6))
 plt.imshow(heatmap, cmap='hot')
-plt.title("Heatmap Squirrel-movement")
-plt.colorbar(label="movement-intensity")
+plt.title("Heatmap: Squirrel Movement")
+plt.colorbar(label="Movement Intensity")
 plt.show()
