@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # --- CONFIGURATION ---
-VIDEO_PATH = '/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_cups2.mp4'
+VIDEO_PATH = 'mp4_snippets/Squirrels_new_cups2.mp4'
 THRESHOLD_VALUE = 20      # Threshold for motion detection
 RESIZE_FACTOR = 0.7       
 MIN_CONTOUR_AREA = 300    # Minimum object size in pixels

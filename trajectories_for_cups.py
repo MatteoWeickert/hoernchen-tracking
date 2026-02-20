@@ -3,7 +3,7 @@ import numpy as np
 
 
 # Configuration
-VIDEO_PATH = "/Users/ankenienaber/Documents/Uni/Master/project/hoernchen-tracking/mp4_snippets/Squirrels_new_cups1.mp4"
+VIDEO_PATH = "mp4_snippets/Squirrels_new_cups1.mp4"
 OUTPUT_IMAGE_PATH = "movement_profile_cups1.png"
 
 THRESHOLD_VALUE = 20
