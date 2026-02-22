@@ -4,9 +4,9 @@ from tqdm import tqdm
 
 # code to convert taken from medium - nam nguyen
 
-input_folder = "C:\\Users\\hemin\\sciebo\\Master_Geoinformatik\\GI_Master_1\\Squirrels\\video_snippets"  # Specify the input folder containing .mov files
-output_folder = "C:\\Users\\hemin\\sciebo\\Master_Geoinformatik\\GI_Master_1\\Squirrels\\mp4_snippets"  # Specify the output folder for .mp4 files# Get a list of all .mov files in the input folder
-mov_files = [filename for filename in os.listdir(input_folder) if filename.endswith(".mov")]# Loop through all .mov files and show estimated progress with a progress bar
+input_folder = ""  # Specify the input folder containing .mov files
+output_folder = ""  # Specify the output folder for .mp4 files# Get a list of all .mov files in the input folder
+mov_files = [filename for filename in os.listdir(input_folder) if filename.endswith(".mov")] # Loop through all .mov files and show estimated progress with a progress bar
 for filename in tqdm(mov_files, desc='Converting videos', unit='video'):
     # Get the full file path of the input .mov file
     input_file_path = os.path.join(input_folder, filename)

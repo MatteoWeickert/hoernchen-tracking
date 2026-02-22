@@ -2,62 +2,62 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Video-Datei laden
-video_path = 'C:\\Users\\hemin\\sciebo\\Master_Geoinformatik\\GI_Master_1\\Squirrels\\mp4_snippets\\Squirrels_new_cups4.mp4'
+# load video
+video_path = ''
 cap = cv2.VideoCapture(video_path)
 
 if not cap.isOpened():
     raise ValueError("Error: Could not open video.")
 
-# Kernel für die morphologische Operation
+# Kernel for morphological operations
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
 
-# Hintergrundsubtraktionsmodell initialisieren
+# Initialize background subtractor
 fgbg = cv2.createBackgroundSubtractorKNN(history=500, detectShadows=True)
 
-# Prozentsatz des Bildes, das oben und unten ignoriert werden soll
+# How much of the frame to ignore at the top and bottom (as a fraction)
 crop_percent_top = 0.0
 crop_percent_bottom = 0.0
 
-# Skalierungsfaktor für das verkleinerte Bild
-scale_percent = 60  # Reduziere auf 60 % der Originalgröße
+# Scale factor for downsampling
+scale_percent = 60  # Reduce to 60% of original size
 
 frame_idx = 0
-changes = []  # Liste zum Speichern der Foreground-Pixel
+changes = []  # Stores foreground pixel counts per frame
 
 while cap.isOpened():
     ret, frame = cap.read()
     
     if not ret:
-        break  # Ende des Videos
+        break  # End of video
     
-    # Bildhöhe und -breite des Frames herausfinden
+    # Get frame dimensions
     height, width = frame.shape[:2]
     
-    # Bereiche berechnen, die oben und unten abgeschnitten werden sollen
+    # Calculate crop boundaries
     top_crop = int(height * crop_percent_top)
     bottom_crop = int(height * (1 - crop_percent_bottom))
     
-    # Frame auf den mittleren Bereich zuschneiden
+    # Crop to the region of interest
     cropped_frame = frame[top_crop:bottom_crop, :]
     
-    # Größe von cropped_frame verkleinern
+    # Resize the cropped frame
     width_resized = int(cropped_frame.shape[1] * scale_percent / 100)
     height_resized = int(cropped_frame.shape[0] * scale_percent / 100)
     cropped_frame_resized = cv2.resize(cropped_frame, (width_resized, height_resized))
     
-    # Hintergrundsubtraktion anwenden
+    # Apply background subtraction
     fgmask = fgbg.apply(cropped_frame_resized)
     
-    # Rauschen mit morphologischen Operationen reduzieren
+    # Clean up noise with morphological operations
     fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel)
     fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_CLOSE, kernel)
     
-    # Anzahl der Vordergrund-Pixel zählen
+    # Count foreground pixels
     count_t = np.sum(fgmask > 0)
     changes.append(count_t)
     
-    # Optional: Ergebnis während Verarbeitung anzeigen
+    # Show original and mask side by side while processing
     fgmask_display = cv2.cvtColor(fgmask, cv2.COLOR_GRAY2BGR)
     combined = cv2.hconcat([cropped_frame_resized, fgmask_display])
     cv2.imshow('Processing...', combined)
@@ -69,12 +69,12 @@ while cap.isOpened():
 cap.release()
 print(f"Done – {frame_idx} Frames processed.")
 
-# --- Glätten (Moving Average) ---
+# Smooth data with moving average
 window_size = 10
 kernel_smooth = np.ones(window_size) / window_size
 smoothed_changes = np.convolve(changes, kernel_smooth, mode='valid')
 
-# --- Plot ---
+# Plot
 plt.figure(figsize=(10, 5))
 plt.plot(changes, label='Raw Data', alpha=0.5, color='gray')
 plt.plot(range(len(smoothed_changes)), smoothed_changes, color='red', 
