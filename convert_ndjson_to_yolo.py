@@ -57,9 +57,8 @@ with open(NDJSON_PATH, "r") as f:
     for line in f:
         data = json.loads(line)
 
-        # Video-Name extrahieren
         video_name = data["data_row"]["external_id"]
-        base_name = video_name.replace('.mp4', '')  # z.B. "Squirrels_new_cups1"
+        base_name = video_name.replace('.mp4', '')
 
         media = data["media_attributes"]
         IMAGE_WIDTH = media["width"]
@@ -101,9 +100,7 @@ with open(NDJSON_PATH, "r") as f:
                             f"{class_id} {x:.6f} {y:.6f} {w:.6f} {h:.6f}"
                         )
 
-                    # ---- Write label file ----
                     if yolo_lines:
-                        # Speichere Videonamen und Frame-Index im Dateinamen
                         label_path = os.path.join(
                             LABEL_OUT_DIR,
                             f"{base_name}_frame_{int(frame_idx):06d}.txt"

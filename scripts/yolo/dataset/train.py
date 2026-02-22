@@ -4,8 +4,6 @@ import torch
 print(torch.cuda.is_available())
 print(torch.cuda.get_device_name(0))
 
-# Trainiere es mit deinen Daten
-
 def main():
     model = YOLO("yolo11n.pt")
     model.train(

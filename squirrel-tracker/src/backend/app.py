@@ -3,7 +3,7 @@ from flask_cors import CORS
 import cv2
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')  # Wichtig für Server ohne Display
+matplotlib.use('Agg')  # Required for headless server
 import matplotlib.pyplot as plt
 import os
 import io
@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 from ultralytics import YOLO
 
 app = Flask(__name__)
-CORS(app)  # Erlaubt Anfragen vom React Frontend
+CORS(app)
 
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
@@ -22,7 +22,7 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 try:
     yolo_model = YOLO(r"best.pt")
 except Exception as e:
-    print(f"Warnung: YOLO Modell konnte nicht geladen werden: {e}")
+    print(f"Warning: Could not load YOLO model: {e}")
     yolo_model = None
 
 def get_video_properties(cap):
@@ -34,11 +34,10 @@ def get_video_properties(cap):
     return fps, total_frames, f"{minutes}:{seconds:02d}"
 
 def generate_plot(data, label_name, color='blue', title="Analysis"):
-    """Hilfsfunktion zum Erstellen des Base64 Plots"""
+    """Generate a base64-encoded PNG plot from time-series data."""
     plt.figure(figsize=(10, 5))
     plt.plot(data, label=label_name, color=color, alpha=0.7)
     
-    # Optional: Glätten
     if len(data) > 20:
         window_size = 15
         kernel = np.ones(window_size) / window_size
@@ -88,7 +87,7 @@ def background_subtraction_analysis(video_path):
 
     cap.release()
 
-    plot_b64 = generate_plot(pixel_counts, "Changed Pixels", "green", "Bewegungserkennung (Background Sub)")
+    plot_b64 = generate_plot(pixel_counts, "Changed Pixels", "green", "Motion Detection (Background Sub)")
 
     return {
         'frames_processed': frame_idx,
@@ -101,76 +100,62 @@ def background_subtraction_analysis(video_path):
     }
 
 def yolo_analysis(video_path):
-    """
-    Analysiert das Video mit YOLO.
-    """
+    """Analyze video with YOLO object detection."""
     if yolo_model is None:
-        raise ValueError("YOLO Modell ist nicht geladen.")
+        raise ValueError("YOLO model is not loaded.")
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened(): raise ValueError("Video Error")
     
     fps, _, duration_str = get_video_properties(cap)
     
-    confidence_sums = [] # Wir tracken die summierte Confidence pro Frame
+    confidence_sums = []
     detection_counts = []
     frame_idx = 0
-    
-    # Klassen-IDs für COCO (Standard): 14=bird, 15=cat, 16=dog, etc.
-    # Wir nehmen erstmal alles, was erkannt wird, da YOLO11n Eichhörnchen oft als Kleintier erkennt.
     
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret: break
 
-        # Nur jeden 3. Frame analysieren für Performance (optional)
+        # Optional: analyze every Nth frame for performance
         # if frame_idx % 3 != 0:
         #     frame_idx += 1
         #     confidence_sums.append(confidence_sums[-1] if confidence_sums else 0)
         #     continue
 
-        # YOLO Inference
         results = yolo_model(frame, verbose=False)
         
-        # Auswertung
         frame_conf_sum = 0.0
         obj_count = 0
         
         for r in results:
             boxes = r.boxes
             for box in boxes:
-                # conf = float(box.conf[0])
-                # cls = int(box.cls[0])
-                # Hier könnten wir nach cls filtern (z.B. if cls in [14, 15, 16, ...])
-                
                 frame_conf_sum += float(box.conf[0])
                 obj_count += 1
         
-        confidence_sums.append(frame_conf_sum * 100) # Skaliert für bessere Lesbarkeit
+        confidence_sums.append(frame_conf_sum * 100)
         detection_counts.append(obj_count)
         frame_idx += 1
 
     cap.release()
 
-    # Plot erstellen (Confidence über Zeit zeigt sehr gut, wann ein Tier im Bild war)
     plot_b64 = generate_plot(confidence_sums, "Total Confidence Score", "purple", "YOLO Object Detection Strength")
 
     return {
         'frames_processed': frame_idx,
         'duration': duration_str,
-        'avg_movement': float(np.mean(confidence_sums)) if confidence_sums else 0, # Hier missbrauchen wir "Movement" für Confidence
+        'avg_movement': float(np.mean(confidence_sums)) if confidence_sums else 0,
         'max_movement': int(np.max(confidence_sums)) if confidence_sums else 0,
         'peak_frame': int(np.argmax(confidence_sums)) if confidence_sums else 0,
-        'total_detections': sum(1 for x in detection_counts if x > 0), # Frames mit mind. 1 Objekt
+        'total_detections': sum(1 for x in detection_counts if x > 0),
         'plot': plot_b64
     }
 
 def time_analysis_function(video_path):
     """
-    Adaption deines Entry-State Skripts.
-    PROBLEM: Wir können cv2.selectROI auf dem Server nicht nutzen.
-    LÖSUNG: Wir teilen das Bild vorerst statisch auf (z.B. Linkes Drittel = Eingang, Rest = Box).
-    Ideal wäre, wenn das Frontend Koordinaten sendet.
+    Estimate time spent in box using background subtraction.
+    Uses static ROI split since cv2.selectROI is unavailable on server.
     """
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened(): raise ValueError("Video Error")
@@ -180,51 +165,44 @@ def time_analysis_function(video_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    # --- STATISCHE ROI DEFINITION (Server-Workaround) ---
-    # Annahme: Kamera schaut von der Seite. 
-    # Eingang = Linkes Viertel
-    # Innen = Rest
-    # Du kannst diese Werte anpassen!
+    # Static ROI definition (server workaround, ideally sent from frontend)
     roi_entrance = (0, 0, int(width * 0.25), height) 
     roi_inside = (int(width * 0.25), 0, width, height) 
 
     fgbg = cv2.createBackgroundSubtractorKNN(history=300, detectShadows=True)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     
-    inside_activity = [] # Speichert Pixel-Changes im Innenbereich
+    inside_activity = []
     
     frame_idx = 0
     scale = 0.5
     
-    # Timer Logik
+    # Timer logic
     timer_running = False
     time_in_box_frames = 0
     start_frame = 0
-    THRESHOLD_INSIDE = 1000 # Empfindlichkeit anpassen
+    THRESHOLD_INSIDE = 1000
     cooldown_counter = 0
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret: break
         
-        # Resize für Performance
+        # Resize for performance
         frame_small = cv2.resize(frame, None, fx=scale, fy=scale)
         
         fgmask = fgbg.apply(frame_small)
         _, fgmask = cv2.threshold(fgmask, 250, 255, cv2.THRESH_BINARY)
         fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel)
         
-        # Skalierte ROIs extrahieren
-        # ROI Format: x1, y1, x2, y2
+        # Extract scaled ROI
         r_in = [int(c * scale) for c in roi_inside]
-        
-        # Maske schneiden (Achtung Numpy Slicing: y1:y2, x1:x2)
         mask_inside = fgmask[r_in[1]:r_in[3], r_in[0]:r_in[2]]
         
         pixels_inside = cv2.countNonZero(mask_inside)
         inside_activity.append(pixels_inside)
         
-        # Simpler Timer Algorithmus
+        # Simple timer algorithm
         if cooldown_counter > 0:
             cooldown_counter -= 1
 
@@ -236,19 +214,18 @@ def time_analysis_function(video_path):
             if timer_running:
                 timer_running = False
                 time_in_box_frames += (frame_idx - start_frame)
-                cooldown_counter = int(fps * 1.0) # 1 Sekunde Cooldown
+                cooldown_counter = int(fps * 1.0)  # 1s cooldown
 
         frame_idx += 1
 
     cap.release()
     
-    # Endgültige Zeit berechnen
     if timer_running:
         time_in_box_frames += (frame_idx - start_frame)
         
     total_seconds_in_box = time_in_box_frames / fps if fps > 0 else 0
     
-    plot_b64 = generate_plot(inside_activity, "Activity Inside Box", "red", "Präsenz in der Box")
+    plot_b64 = generate_plot(inside_activity, "Activity Inside Box", "red", "Presence in Box")
 
     return {
         'frames_processed': frame_idx,
@@ -256,7 +233,7 @@ def time_analysis_function(video_path):
         'avg_movement': float(np.mean(inside_activity)) if inside_activity else 0,
         'max_movement': int(np.max(inside_activity)) if inside_activity else 0,
         'peak_frame': int(np.argmax(inside_activity)) if inside_activity else 0,
-        'total_detections': int(total_seconds_in_box), # Wir nutzen dieses Feld hier für "Sekunden in Box"
+        'total_detections': int(total_seconds_in_box),
         'plot': plot_b64
     }
 
@@ -267,13 +244,13 @@ def time_analysis_function(video_path):
 def analyze_video():
     try:
         if 'video' not in request.files:
-            return jsonify({'error': 'Kein Video hochgeladen'}), 400
+            return jsonify({'error': 'No video uploaded'}), 400
         
         video_file = request.files['video']
         method = request.form.get('method', 'background_sub')
         
         if video_file.filename == '':
-            return jsonify({'error': 'Keine Datei ausgewählt'}), 400
+            return jsonify({'error': 'No file selected'}), 400
 
         filename = secure_filename(video_file.filename)
         video_path = os.path.join(UPLOAD_FOLDER, filename)
@@ -289,13 +266,12 @@ def analyze_video():
             elif method == 'time_analysis':
                 results = time_analysis_function(video_path)
             else:
-                results = {'error': f'Methode {method} noch nicht implementiert'}
+                results = {'error': f'Method {method} not implemented'}
         except Exception as e:
-            # Fehler beim Verarbeiten abfangen, Datei aber trotzdem löschen
             print(f"Processing Error: {e}")
             raise e
         finally:
-            # Clean up: Video löschen um Speicherplatz zu sparen
+            # Clean up uploaded video
             if os.path.exists(video_path):
                 os.remove(video_path)
 

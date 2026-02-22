@@ -17,15 +17,10 @@ os.makedirs(IMAGE_DIR, exist_ok=True)
 # HELPER: Fix encoding
 # =====================
 def fix_encoding(text):
-    """
-    Fixes mojibake (falsche Kodierung) in Dateinamen
-    HÃ¶rnchen -> Hörnchen
-    """
+    """Fix mojibake in filenames (e.g. HÃ¶rnchen -> Hörnchen)."""
     try:
-        # Versuche latin-1 -> utf-8 Konvertierung
         return text.encode('latin-1').decode('utf-8')
     except (UnicodeDecodeError, UnicodeEncodeError):
-        # Falls das nicht funktioniert, normalisiere den Text
         return unicodedata.normalize('NFC', text)
 
 # =====================
@@ -54,9 +49,7 @@ for video_name, frames in video_frames.items():
 
     if not os.path.exists(video_path):
         print(f"⚠ Video not found: {video_name}")
-        print(f"  Looking for: {repr(video_name)}")  # *** Debug-Info ***
-        
-        # *** Versuche alle Videos im Ordner zu finden ***
+        print(f"  Looking for: {repr(video_name)}")
         available_videos = os.listdir(VIDEO_DIR)
         print(f"  Available videos:")
         for v in available_videos:
@@ -68,43 +61,38 @@ for video_name, frames in video_frames.items():
     
     print(f"Extracting {len(frame_set)} frames from {video_name}")
     
-    # Extrahiere alle Frames mit ffmpeg
     temp_pattern = os.path.join(IMAGE_DIR, f"{base_name}_temp_%06d.jpg")
     
     cmd = [
         "ffmpeg",
         "-loglevel", "error",
         "-i", video_path,
-        "-vsync", "0",  # Wichtig: behält Frame-Nummern bei
+        "-vsync", "0",
         temp_pattern
     ]
     
     subprocess.run(cmd, check=True)
     
-    # Lösche nicht benötigte Frames und benenne die gewünschten um
+    # Keep only annotated frames, delete the rest
     kept_count = 0
     removed_count = 0
     
     for temp_file in os.listdir(IMAGE_DIR):
         if temp_file.startswith(f"{base_name}_temp_"):
-            # Extrahiere Frame-Nummer (0-basiert von ffmpeg)
             frame_num = int(temp_file.split('_')[-1].replace('.jpg', ''))
             
             temp_path = os.path.join(IMAGE_DIR, temp_file)
             
             if frame_num in frame_set:
-                # Behalte diesen Frame und benenne um
                 final_name = f"{base_name}_frame_{frame_num:06d}.jpg"
                 final_path = os.path.join(IMAGE_DIR, final_name)
                 
-                # Lösche zuerst falls Datei existiert, dann umbenennen
                 if os.path.exists(final_path):
                     os.remove(final_path)
                 
                 os.rename(temp_path, final_path)
                 kept_count += 1
             else:
-                # Lösche nicht benötigten Frame
                 os.remove(temp_path)
                 removed_count += 1
     

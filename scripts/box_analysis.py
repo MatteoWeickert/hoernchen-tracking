@@ -5,16 +5,16 @@ import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
 from collections import deque
 
-# 1. Lade das vortrainierte YOLOv8-Modell
+# Load YOLO model
 model = YOLO('C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\runs\\detect\\best_andi.pt')
 
-# 2. Öffne deine Videodatei
+# Video paths
 video_path1 = "C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\videos\\box_analysis_videos\\20241015_TrepS_02_in (1)_clip-1.mp4"
 video_path2 = "C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\videos\\box_analysis_videos\\20241015_TrepS_02_in (1)_clip-3.mp4"
 video_path3 = "C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\videos\\box_analysis_videos\\20241107_TrepS_01_in (2)_cut_updated.mp4"
 video_path4 = "C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\videos\\box_analysis_videos\\20241107_TrepS_01_in (3)_cut.mp4"
 video_path5 = "C:\\Users\\maweo\\OneDrive - Universität Münster\\Dokumente\\Master\\Semester 1\\Study Project\\hoernchen-tracking\\videos\\box_analysis_videos\\20241108_TrepS_01_in (4)_cut_updated.mp4"
-video_path = video_path3 # Hier kannst du zwischen den Videos wechseln
+video_path = video_path4
 
 
 class TrackedObject:
@@ -22,15 +22,15 @@ class TrackedObject:
         self.id = obj_id
         self.class_id = class_id
         self.class_name = class_name
-        self.box = initial_box  # [x, y, w, h]
+        self.box = initial_box
         self.center = self._get_center(initial_box)
         
-        # Status History: 0=Sichtbar, 1=Nicht sichtbar & Hörnchen noch in Box, 2=Nicht Sichtbar & Hörnchen weg (vermutlich interagiert)
+        # Status: 0=visible, 1=occluded (squirrel still in box), 2=gone (likely interacted)
         self.history_status = [] 
         self.history_frames = []
         
-        self.squirrel_absent_counter = 0 # Seit wie vielen Frames ist das Eichhörnchen weg?
-        self.is_active = True     # Ist das Objekt noch Teil der Simulation?
+        self.squirrel_absent_counter = 0
+        self.is_active = True
 
     def _get_center(self, box):
         x, y, w, h = box
@@ -39,29 +39,23 @@ class TrackedObject:
     def update(self, new_box, frame_id):
         self.box = new_box
         self.center = self._get_center(new_box)
-        self.history_status.append(0) # 0 = Grün (Sichtbar)
+        self.history_status.append(0)
         self.history_frames.append(frame_id)
 
     def mark_missing(self, frame_id, is_squirrel_present=False):
-        """
-        Docstring for mark_missing
+        """Mark object as missing; status depends on squirrel presence."""
         
-        :param self: Description
-        :param frame_id: Description
-        :param is_squirrel_present: Description
-        """
-        
-        current_status = 1 # Orange, vermutlich verdecktes Objekt
+        current_status = 1
         if is_squirrel_present:
             current_status = 1
-            self.squirrel_absent_counter = 0 # Reset counter when squirrel is present
+            self.squirrel_absent_counter = 0
 
         else:
             self.squirrel_absent_counter += 1
             if self.squirrel_absent_counter > 10:
-                current_status = 2 # Rot, vermutlich interagiert oder weg
+                current_status = 2
             else:
-                current_status = 1 # Orange, Hörnchen für ein paar Frames nicht erkannt
+                current_status = 1
 
         if self.class_name == 'squirrel':
             current_status = 2
@@ -70,9 +64,9 @@ class TrackedObject:
         self.history_frames.append(frame_id)
         
 
-# --- HILFSFUNKTIONEN ---
+# --- HELPER FUNCTIONS ---
 def calculate_iou(boxA, boxB):
-    # box: [x_center, y_center, w, h] -> umrechnen in [x1, y1, x2, y2]
+    """Calculate IoU between two [x_center, y_center, w, h] boxes."""
     def to_coords(b):
         x, y, w, h = b
         return [x - w/2, y - h/2, x + w/2, y + h/2]
@@ -92,13 +86,14 @@ def calculate_iou(boxA, boxB):
     iou = interArea / float(boxAArea + boxBArea - interArea + 1e-6)
     return iou
 
-# --- INITIALISIERUNG ---
+# --- INITIALIZATION ---
 def initialize_objects(video_path, model, num_init_frames=1):
+    """Detect static objects in the first frame for tracking."""
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        raise ValueError("Video konnte nicht geladen werden")
+        raise ValueError("Could not load video")
 
-    print(f"Initialisiere Tracking (scanne erste {num_init_frames} Frames)...")
+    print(f"Initializing tracking (scanning first {num_init_frames} frames)...")
     
     # Speichere alle Detections des ersten Frames
         
@@ -106,15 +101,14 @@ def initialize_objects(video_path, model, num_init_frames=1):
 
     ret, frame = cap.read()
     if not ret: 
-        raise ValueError("Konnte den ersten Frame nicht lesen")
+        raise ValueError("Could not read first frame")
         
-    # YOLO Inferenz
     results = model(frame, verbose=False)
     results = results[0]
     if results.boxes:
-        for box, cls in zip(results.boxes.xywh.cpu().numpy(), results.boxes.cls.cpu().numpy()): # verbinde jede Box mit ihrer Klasse
+        for box, cls in zip(results.boxes.xywh.cpu().numpy(), results.boxes.cls.cpu().numpy()):
             class_name = model.names[int(cls)]
-            if class_name != 'squirrel': # Eichhörnchen ignorieren bei Init
+            if class_name != 'squirrel':
                 detections.append({'box': box, 'cls': int(cls), 'name': class_name})
 
     cap.release()
@@ -123,19 +117,18 @@ def initialize_objects(video_path, model, num_init_frames=1):
     final_objects = []
 
     for det in detections:
-        # Erstelle festes Objekt
         new_obj = TrackedObject(obj_id_counter, det['cls'], det['name'], det['box'])
         final_objects.append(new_obj)
         obj_id_counter += 1
 
-    print(f"Initialisierung abgeschlossen. {len(final_objects)} statische Objekte gefunden.")
-    print("Objekte: ", [(obj.id, obj.class_name) for obj in final_objects])
+    print(f"Initialization complete. {len(final_objects)} static objects found.")
+    print("Objects: ", [(obj.id, obj.class_name) for obj in final_objects])
     return final_objects
 
 def run_tracking(video_path, model, tracked_objects):
+    """Run frame-by-frame tracking with Hungarian matching and live visualization."""
     cap = cv2.VideoCapture(video_path)
     
-    # Plot Setup (Matplotlib interaktiv)
     plt.ion()
     fig, ax = plt.subplots(figsize=(11, 4))
     fig.show()
@@ -147,33 +140,32 @@ def run_tracking(video_path, model, tracked_objects):
     plot_state = {}
     
     frame_count = 0
-    squirrel_obj = None # Spezial-Objekt für das Eichhörnchen, da es im initialen Frame nicht getrackt wird
+    squirrel_obj = None
     
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret: break
         frame_count += 1
         
-        # 1. YOLO Detection
+        # YOLO detection
         results = model(frame, verbose=False, conf=0.25)
         
-        current_boxes = []     # Alle nicht-Squirrel Boxen
-        current_squirrel = None # Die Squirrel Box
+        current_boxes = []
+        current_squirrel = None
         is_squirrel_present = False
         
-        # Finde aktuelle Boxen im Frame und setze Squirrel Box
+        # Parse detections
         if results[0].boxes:
             for box, cls, conf in zip(results[0].boxes.xywh.cpu().numpy(), results[0].boxes.cls.cpu().numpy(), results[0].boxes.conf.cpu().numpy()):
                 name = model.names[int(cls)]
                 if name == 'squirrel':
-                    # Nimm das Eichhörnchen mit der höchsten Confidence
                     if current_squirrel is None or conf > current_squirrel['conf']:
                         current_squirrel = {'box': box, 'conf': conf}
                         is_squirrel_present = True
                 else:
                     current_boxes.append(box)
 
-        # 2. Squirrel Tracking (ID: 99)
+        # Squirrel tracking (ID: 99)
         if current_squirrel:
             if squirrel_obj is None:
                 squirrel_obj = TrackedObject(99, -1, 'squirrel', current_squirrel['box'])
@@ -182,10 +174,7 @@ def run_tracking(video_path, model, tracked_objects):
             if squirrel_obj:
                 squirrel_obj.mark_missing(frame_count, is_squirrel_present)
 
-        # 3. Static Object Matching (Hungarian Algorithm via IoU)
-        # Wir bauen eine Kostenmatrix: Zeilen = Alte Objekte, Spalten = Neue Boxen
-        # Kosten = 1 - IoU (damit Maximieren von IoU = Minimieren von Kosten)
-        
+        # Static object matching via Hungarian algorithm (IoU cost matrix)
         cost_matrix = np.ones((len(tracked_objects), len(current_boxes)))
         
         for i, obj in enumerate(tracked_objects):
@@ -193,52 +182,54 @@ def run_tracking(video_path, model, tracked_objects):
                 iou = calculate_iou(obj.box, box)
                 cost_matrix[i, j] = 1 - iou
 
-        # Hungarian Assignment
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
-        print(f"Frame {frame_count}: Kostenmatrix:\n{cost_matrix}\nZuweisungen (Objekt -> Box): {[(int(r), int(c)) for r, c in zip(row_ind, col_ind)]}")
+        print(f"Frame {frame_count}: Cost matrix:\n{cost_matrix}\nAssignments (obj -> box): {[(int(r), int(c)) for r, c in zip(row_ind, col_ind)]}")
         
         assigned_objs = set()
         assigned_boxes = set()
 
         for r, c in zip(row_ind, col_ind):
-            # Prüfe ob der Match gut genug ist (Threshold)
-            # IoU muss > 0.1 sein
-            if cost_matrix[r, c] < 0.9: # Entspricht IoU > 0.1
+            if cost_matrix[r, c] < 0.9:  # IoU > 0.1
                 tracked_objects[r].update(current_boxes[c], frame_count)
                 assigned_objs.add(r)
                 assigned_boxes.add(c)
         
-        # 4. Nicht gematchte Objekte behandeln (weniger Boxen als Objekte -> einige könnten verdeckt sein)
+        # Handle unmatched objects (may be occluded)
         for i, obj in enumerate(tracked_objects):
             if i not in assigned_objs:
                 obj.mark_missing(frame_count, is_squirrel_present)
                 
-        # --- VISUALISIERUNG (VIDEO) ---
-        # Zeichne statische Objekte
+        # --- VISUALIZATION ---
         for obj in tracked_objects:
             x, y, w, h = map(int, obj.box)
-            # Farbe je nach Status (Grün=Da, Rot=Weg)
             color = (0, 255, 0) if obj.history_status[-1] == 0 else (0, 0, 255)
             
-            # Zeichne Box nur wenn aktuell sichtbar (Status 0)
             if obj.history_status[-1] == 0:
                 cv2.rectangle(frame, (x - w//2, y - h//2), (x + w//2, y + h//2), color, 2)
                 cv2.putText(frame, f"ID {obj.id} ({obj.class_name})", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             else:
-                # Zeichne "Ghost" Position (wo es zuletzt war)
                 cv2.circle(frame, (int(obj.center[0]), int(obj.center[1])), 5, (0,0,255), -1)
 
-        # Zeichne Squirrel
+        # Draw squirrel
         if squirrel_obj and squirrel_obj.history_status[-1] == 0:
             sx, sy, sw, sh = map(int, squirrel_obj.box)
             cv2.rectangle(frame, (sx - sw//2, sy - sh//2), (sx + sw//2, sy + sh//2), (255, 100, 0), 2)
             cv2.putText(frame, "Squirrel", (sx, sy-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 100, 0), 2)
 
-        cv2.imshow('Tracking Live', frame)
+        # cv2.imshow('Tracking Live', frame)
         
-        # --- PLOT UPDATE (Alle X Frames um Performance zu sparen) ---
+        # --- PLOT UPDATE (every 10 frames for performance) ---
         if frame_count % 10 == 0:
             update_plot(fig, ax, plot_state, tracked_objects, squirrel_obj)
+            plot_img = fig_to_image(fig)
+
+            # Resize plot to match frame height
+            h_frame = frame.shape[0]
+            plot_img = cv2.resize(plot_img, (int(plot_img.shape[1] * h_frame / plot_img.shape[0]), h_frame))
+
+            combined = cv2.hconcat([frame, plot_img])
+
+            cv2.imshow("Tracking + Timeline", combined)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -246,9 +237,10 @@ def run_tracking(video_path, model, tracked_objects):
     cap.release()
     cv2.destroyAllWindows()
     plt.ioff()
-    plt.show() # Plot am Ende offen lassen
+    plt.show()
 
 def update_plot(fig, ax, plot_state, tracked_objects, squirrel_obj):
+    """Update the live timeline plot with object status history."""
         
     all_objs = tracked_objects + ([squirrel_obj] if squirrel_obj else [])
     
@@ -257,7 +249,6 @@ def update_plot(fig, ax, plot_state, tracked_objects, squirrel_obj):
         
         key=obj.id
         
-        # Arrays für Plotting vorbereiten
         frames = np.array(obj.history_frames)
         statuses = np.array(obj.history_status)
 
@@ -275,12 +266,11 @@ def update_plot(fig, ax, plot_state, tracked_objects, squirrel_obj):
 
         y_pos = plot_state[key]["y"]
 
-        # Masken
         mask_visible = statuses == 0
         mask_missing = statuses == 1
         mask_gone = statuses == 2
 
-        # Offsets aktualisieren
+        # Update scatter offsets
         plot_state[key]["visible"].set_offsets(
             np.column_stack((frames[mask_visible], np.full(np.sum(mask_visible), y_pos)))
             if np.any(mask_visible) else np.empty((0, 2))
@@ -296,7 +286,7 @@ def update_plot(fig, ax, plot_state, tracked_objects, squirrel_obj):
             if np.any(mask_gone) else np.empty((0, 2))
         )
 
-    # Y-Achse nur aktualisieren wenn neue Objekte dazu kamen
+    # Update y-axis labels
     ax.set_yticks(range(len(all_objs)))
     ax.set_yticklabels([f"{obj.class_name} {obj.id}" for obj in all_objs if obj])
     ax.set_ylim(-1, len(all_objs))
@@ -304,14 +294,28 @@ def update_plot(fig, ax, plot_state, tracked_objects, squirrel_obj):
     fig.canvas.draw_idle()
     fig.canvas.flush_events()
 
+def fig_to_image(fig):
+    """Convert matplotlib figure to OpenCV BGR image."""
+    fig.canvas.draw()
+
+    width, height = fig.canvas.get_width_height()
+    buf = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8)
+    buf = buf.reshape((height, width, 4))
+
+    # ARGB -> RGB -> BGR
+    buf = buf[:, :, [1, 2, 3, 0]]
+    rgb = buf[:, :, :3]
+    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+    return bgr
+
 if __name__ == "__main__":
-    VIDEO_PATH = video_path # Dein Video
+    VIDEO_PATH = video_path
     
-    # 1. Modell laden
     model = model
     
-    # 2. Initialisierung (Phase 1) - Objekte finden
+    # Initialize static objects from first frame
     objects = initialize_objects(VIDEO_PATH, model)
     
-    # 3. Tracking Loop (Phase 2-Ende)
+    # Run tracking loop
     run_tracking(VIDEO_PATH, model, objects)
